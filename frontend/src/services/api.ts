@@ -99,3 +99,33 @@ export const usersApi = {
   updateProfile: (data: any) => api.put('/users/me', data),
   changePassword: (data: any) => api.post('/users/me/change-password', data),
 };
+
+// Admin API
+export const adminApi = {
+  // Dashboard
+  getDashboard: () => api.get('/admin/dashboard'),
+
+  // Stores
+  getStores: () => api.get('/admin/stores'),
+  getStore: (id: string) => api.get(`/admin/stores/${id}`),
+  createStore: (data: any) => api.post('/admin/stores', data),
+  updateStore: (id: string, data: any) => api.put(`/admin/stores/${id}`, data),
+  deleteStore: (id: string) => api.delete(`/admin/stores/${id}`),
+
+  // System Config
+  getConfigs: () => api.get('/admin/config'),
+  getConfig: (key: string) => api.get(`/admin/config/${key}`),
+  createConfig: (data: any) => api.post('/admin/config', data),
+  updateConfig: (key: string, data: any) => api.put(`/admin/config/${key}`, data),
+  deleteConfig: (key: string) => api.delete(`/admin/config/${key}`),
+
+  // Jobs
+  getJobs: (limit?: number) => api.get('/admin/jobs', { params: { limit } }),
+  getJobStats: () => api.get('/admin/jobs/stats'),
+
+  // Users
+  getAllUsers: () => api.get('/admin/users'),
+  updateUserRole: (id: string, role: 'USER' | 'ADMIN') =>
+    api.put(`/admin/users/${id}/role`, { role }),
+  deleteUser: (id: string) => api.delete(`/admin/users/${id}`),
+};

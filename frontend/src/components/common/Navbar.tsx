@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
-import { Search, User, LogOut, LayoutDashboard, CreditCard } from 'lucide-react';
+import { Search, User, LogOut, LayoutDashboard, CreditCard, Shield } from 'lucide-react';
 
 export default function Navbar() {
   const { user, isAuthenticated, logout } = useAuthStore();
@@ -38,6 +38,16 @@ export default function Navbar() {
                   <LayoutDashboard className="w-5 h-5" />
                   <span className="hidden md:inline">Dashboard</span>
                 </Link>
+
+                {user?.role === 'ADMIN' && (
+                  <Link
+                    to="/admin"
+                    className="flex items-center space-x-2 text-purple-600 hover:text-purple-800"
+                  >
+                    <Shield className="w-5 h-5" />
+                    <span className="hidden md:inline font-semibold">Admin</span>
+                  </Link>
+                )}
 
                 {user?.subscription?.plan === 'PREMIUM' && (
                   <span className="px-3 py-1 bg-gradient-to-r from-yellow-400 to-yellow-600 text-white text-sm font-semibold rounded-full">

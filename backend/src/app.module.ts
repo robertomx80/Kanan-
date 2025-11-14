@@ -14,6 +14,7 @@ import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { ScrapingModule } from './scraping/scraping.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { JobsModule } from './jobs/jobs.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -55,6 +56,7 @@ import { JobsModule } from './jobs/jobs.module';
     ScrapingModule,
     NotificationsModule,
     JobsModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],
