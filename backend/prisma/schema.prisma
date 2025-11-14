@@ -1,0 +1,357 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum SubscriptionPlan {
+  FREE
+  PREMIUM
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+  PAYMENT_FAILED
+}
+
+enum NotificationType {
+  EMAIL
+  PUSH
+  WEBHOOK
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  READ
+}
+
+enum PriceAlertCondition {
+  DROPS_BELOW      // Cuando el precio baja de X
+  RISES_ABOVE      // Cuando el precio sube de X
+  PERCENTAGE_DROP  // Cuando baja X%
+  ANY_CHANGE       // Cualquier cambio
+}
+
+enum ScrapingStatus {
+  PENDING
+  IN_PROGRESS
+  SUCCESS
+  FAILED
+}
+
+// ============================================
+// MODELS
+// ============================================
+
+model User {
+  id                String    @id @default(uuid())
+  email             String    @unique
+  password          String
+  firstName         String?
+  lastName          String?
+  role              UserRole  @default(USER)
+  isEmailVerified   Boolean   @default(false)
+  emailVerificationToken String?
+  resetPasswordToken String?
+  resetPasswordExpires DateTime?
+  avatar            String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  lastLoginAt       DateTime?
+
+  // Relations
+  subscription      Subscription?
+  productTrackings  ProductTracking[]
+  priceAlerts       PriceAlert[]
+  notifications     Notification[]
+
+  @@map("users")
+}
+
+model Subscription {
+  id                String              @id @default(uuid())
+  userId            String              @unique
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  plan              SubscriptionPlan    @default(FREE)
+  status            SubscriptionStatus  @default(ACTIVE)
+
+  // Payment info
+  stripeCustomerId      String?
+  stripeSubscriptionId  String?
+  stripePriceId         String?
+
+  // Subscription period
+  currentPeriodStart    DateTime?
+  currentPeriodEnd      DateTime?
+  cancelAtPeriodEnd     Boolean         @default(false)
+  canceledAt            DateTime?
+
+  // Usage limits
+  maxTrackedProducts    Int             @default(1)  // 1 for FREE, unlimited (-1) for PREMIUM
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@map("subscriptions")
+}
+
+model Category {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  icon        String?
+  parentId    String?
+  parent      Category? @relation("CategoryToCategory", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryToCategory")
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  products    Product[]
+
+  @@map("categories")
+}
+
+model Store {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  slug        String    @unique
+  website     String
+  logo        String?
+
+  // Scraping config
+  isActive    Boolean   @default(true)
+  scrapingSelector String? // JSON config for selectors
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  prices      Price[]
+
+  @@map("stores")
+}
+
+model Product {
+  id              String    @id @default(uuid())
+  sku             String?   @unique
+  name            String
+  slug            String    @unique
+  description     String?   @db.Text
+  brand           String?
+  model           String?
+
+  // Category
+  categoryId      String?
+  category        Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  // Images
+  mainImage       String?
+  images          String[]  // Array of image URLs
+
+  // Metadata
+  specifications  Json?     // JSON object with specs
+  features        String[]
+
+  // SEO
+  metaTitle       String?
+  metaDescription String?
+
+  // Status
+  isActive        Boolean   @default(true)
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  prices          Price[]
+  trackings       ProductTracking[]
+  priceAlerts     PriceAlert[]
+
+  @@index([slug])
+  @@index([categoryId])
+  @@map("products")
+}
+
+model Price {
+  id          String    @id @default(uuid())
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  storeId     String
+  store       Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  // Price info
+  price       Float
+  currency    String    @default("MXN")
+  originalPrice Float?  // If on sale
+  discount    Float?    // Discount percentage
+
+  // Availability
+  isAvailable Boolean   @default(true)
+  inStock     Boolean   @default(true)
+  stockCount  Int?
+
+  // Product URL at store
+  url         String
+
+  // Scraping metadata
+  scrapedAt   DateTime  @default(now())
+  scrapingStatus ScrapingStatus @default(SUCCESS)
+
+  createdAt   DateTime  @default(now())
+
+  @@unique([productId, storeId, createdAt])
+  @@index([productId, storeId])
+  @@index([createdAt])
+  @@map("prices")
+}
+
+model ProductTracking {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  // Tracking settings
+  isActive    Boolean   @default(true)
+
+  // Stats
+  initialPrice Float?
+  lowestPrice  Float?
+  highestPrice Float?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([userId, productId])
+  @@index([userId])
+  @@index([productId])
+  @@map("product_trackings")
+}
+
+model PriceAlert {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  // Alert condition
+  condition   PriceAlertCondition
+  targetPrice Float?    // For DROPS_BELOW, RISES_ABOVE
+  percentage  Float?    // For PERCENTAGE_DROP
+
+  // Status
+  isActive    Boolean   @default(true)
+  triggeredAt DateTime?
+  lastCheckedAt DateTime?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([productId])
+  @@index([isActive])
+  @@map("price_alerts")
+}
+
+model Notification {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type        NotificationType
+  status      NotificationStatus @default(PENDING)
+
+  // Content
+  subject     String
+  message     String    @db.Text
+  data        Json?     // Additional data (productId, priceChange, etc.)
+
+  // Delivery
+  sentAt      DateTime?
+  readAt      DateTime?
+  failedAt    DateTime?
+  errorMessage String?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId, status])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+// ============================================
+// SYSTEM TABLES
+// ============================================
+
+model ScrapingJob {
+  id          String    @id @default(uuid())
+
+  jobType     String    // 'product', 'store', 'category'
+  targetId    String?   // productId, storeId, etc.
+
+  status      ScrapingStatus @default(PENDING)
+
+  // Execution
+  startedAt   DateTime?
+  completedAt DateTime?
+  duration    Int?      // milliseconds
+
+  // Results
+  itemsScraped Int      @default(0)
+  itemsFailed  Int      @default(0)
+  errorMessage String?  @db.Text
+  errorStack   String?  @db.Text
+
+  // Retry
+  retryCount  Int      @default(0)
+  maxRetries  Int      @default(3)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status])
+  @@index([jobType])
+  @@index([createdAt])
+  @@map("scraping_jobs")
+}
+
+model SystemConfig {
+  id          String    @id @default(uuid())
+  key         String    @unique
+  value       String    @db.Text
+  description String?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("system_config")
+}

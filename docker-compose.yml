@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: price-tracking-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: price_tracking
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - price-tracking-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: price-tracking-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - price-tracking-network
+
+  # Opcional: Administrador de PostgreSQL
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: price-tracking-pgadmin
+    restart: unless-stopped
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@pricetracking.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - price-tracking-network
+    depends_on:
+      - postgres
+
+  # Opcional: Administrador de Redis
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: price-tracking-redis-commander
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    networks:
+      - price-tracking-network
+    depends_on:
+      - redis
+
+volumes:
+  postgres_data:
+  redis_data:
+  pgadmin_data:
+
+networks:
+  price-tracking-network:
+    driver: bridge
