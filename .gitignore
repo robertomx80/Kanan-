@@ -10,6 +10,8 @@ node_modules/
 # Production
 /build
 /dist
+dist/
+build/
 *.tsbuildinfo
 
 # Environment variables
